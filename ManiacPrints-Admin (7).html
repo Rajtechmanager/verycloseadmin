@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ManiacPrints Admin</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+:root{--bg:#fff;--fg:#111;--mut:#707072;--card:#f5f5f5;--line:#e5e5e5}
+@media (prefers-color-scheme:dark){:root{--bg:#111;--fg:#fff;--mut:#9e9ea0;--card:#1c1c1e;--line:#2c2c2e}}
+*{box-sizing:border-box}
+body{margin:0;padding:32px 4vw;background:var(--bg);color:var(--fg);font-family:"Helvetica Neue",Helvetica,Arial,sans-serif}
+h1{font-family:Impact,"Arial Narrow",sans-serif;font-weight:400;text-transform:uppercase;font-size:40px;margin:0 0 8px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;margin:24px 0}
+.note{background:var(--card);border-radius:8px;padding:16px}
+.mut{color:var(--mut);font-size:14px}
+label{display:block;font-size:14px;font-weight:600;margin:14px 0 6px}
+input,select{width:100%;padding:12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--fg);font:inherit}
+.row select{width:auto;padding:6px 8px;font-size:13px}.btn{border:0;border-radius:30px;padding:8px 16px;font-size:14px;font-weight:600;cursor:pointer;background:var(--fg);color:var(--bg)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.row{display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin:8px 0}
+.row img{width:48px;height:48px;object-fit:cover;border-radius:6px}.row span{flex:1;min-width:140px}
+.ord{display:flex;gap:16px;padding:14px 0;border-top:1px solid var(--line);flex-wrap:wrap}.ord svg{width:140px;flex:none;border-radius:8px;background:#ddd}.ord .m{flex:1;min-width:220px;font-size:14px;line-height:1.5}.tag{background:var(--fg);color:var(--bg);border-radius:20px;padding:2px 10px;font-size:12px;font-weight:600}.ord .btn{margin:6px 6px 0 0;text-decoration:none;display:inline-block}
+/* ===== sections: each one has its own colour so they never look the same ===== */
+[hidden]{display:none!important}
+[data-tab=products],[data-panel=products]{--ac:#2563eb}
+[data-tab=gallery],[data-panel=gallery]{--ac:#9333ea}
+[data-tab=orders],[data-panel=orders]{--ac:#15803d}
+[data-tab=designs],[data-panel=designs]{--ac:#ea580c}
+[data-tab=queries],[data-panel=queries]{--ac:#dc2626}
+.row img.dz{background:repeating-conic-gradient(#ccc 0 25%,#fff 0 50%) 0 0/12px 12px;object-fit:contain}
+.tabs{display:flex;gap:8px;flex-wrap:wrap;position:sticky;top:0;z-index:5;background:var(--bg);padding:10px 0;margin:0 0 8px;border-bottom:1px solid var(--line)}
+.tab{display:flex;align-items:center;gap:8px;border:2px solid var(--ac);background:transparent;color:var(--fg);border-radius:12px;padding:10px 18px;font:inherit;font-size:16px;font-weight:700;cursor:pointer}
+.tab.on{background:var(--ac);color:#fff}
+.tab .cnt{min-width:24px;padding:1px 8px;border-radius:12px;background:rgba(127,127,127,.25);font-size:13px;text-align:center}
+.tab.on .cnt{background:rgba(255,255,255,.3)}
+.tab .new{background:#e11d2e;color:#fff;border-radius:12px;padding:1px 8px;font-size:12px}
+.panel{border-top:5px solid var(--ac);padding-top:16px;margin-top:4px}
+.panel>h2{margin:0 0 4px;font-size:26px}
+.panel .note{border-left:5px solid var(--ac)}
+.split{display:grid;grid-template-columns:minmax(280px,380px) minmax(0,1fr);gap:16px;margin:16px 0;align-items:start}
+@media(max-width:820px){.split{grid-template-columns:1fr}}
+.types{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 4px}
+.chip{border:2px solid var(--line);background:var(--bg);color:var(--fg);border-radius:30px;padding:8px 16px;font:inherit;font-size:14px;font-weight:600;cursor:pointer}
+.chip b{margin-left:4px;color:var(--mut)}
+.chip.on{background:var(--ac);border-color:var(--ac);color:#fff}.chip.on b{color:#fff}
+.lg{margin-top:18px}
+.lgh{display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--bg);border-left:4px solid var(--ac);border-radius:6px;font-size:15px}
+.lgh .mut{font-size:13px}
+.ordtop{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0}
+.ordtop .sp{flex:1}
+.btn.on{background:#15803d;color:#fff;outline:2px solid #15803d;outline-offset:2px}
+.btn.dlb{background:#15803d;color:#fff}
+.oid{font-family:ui-monospace,Menlo,Consolas,monospace;font-weight:800;font-size:16px;background:var(--bg);border:1px dashed var(--ac);border-radius:6px;padding:2px 8px}
+#lbx{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;padding:16px;cursor:zoom-out}
+#lbx img{max-width:100%;max-height:100%;object-fit:contain;border-radius:8px;background:#ddd}
+.ord>img{cursor:zoom-in}
+</style>
+</head>
+<body>
+<h1>ManiacPrints Admin</h1>
+<p class="mut">Photos you add here show on the shop page straight away. <a href="ManiacPrints-20.html">Open shop</a></p>
+<div id="loginBox" class="note" style="max-width:420px"><b>Admin login</b>
+  <label>Email</label><input id="le" type="email" autocomplete="email"><label>Password</label><input id="lp" type="password" autocomplete="current-password">
+  <div style="height:12px"></div><button class="btn" id="lg">Sign in</button> <button class="btn" id="lgg" style="background:transparent;color:var(--fg);border:1px solid var(--fg)">Continue with Google</button></div>
+<p><button class="btn" id="lo" hidden>Sign out</button></p>
+<div id="app" hidden>
+<nav class="tabs" id="mainTabs" role="tablist" aria-label="Admin sections">
+  <button type="button" class="tab on" data-tab="products" role="tab" aria-selected="true">Products <span class="cnt" id="cP">0</span></button>
+  <button type="button" class="tab" data-tab="gallery" role="tab" aria-selected="false">Gallery <span class="cnt" id="cG">0</span></button>
+  <button type="button" class="tab" data-tab="designs" role="tab" aria-selected="false">Designs <span class="cnt" id="cD">0</span></button>
+  <button type="button" class="tab" data-tab="orders" role="tab" aria-selected="false">Orders <span class="cnt" id="cO">0</span><span class="new" id="cOn" hidden></span></button>
+  <button type="button" class="tab" data-tab="queries" role="tab" aria-selected="false">Queries <span class="cnt" id="cQ">0</span><span class="new" id="cQn" hidden></span></button>
+</nav>
+
+<section class="panel" id="panel-products" data-panel="products">
+  <h2>Products</h2>
+  <div class="mut">Appear in Products and the Customize picker. Use a plain front photo of the tee.</div>
+  <div class="split">
+    <div class="note"><b>Add a product</b>
+      <label>Photos (choose several at once)</label><input type="file" id="pf" accept="image/*" multiple>
+      <div class="mut" style="margin-top:6px">The first photo is the plain tee that customers customise. All the photos flash one by one on the shop (up to 6).</div>
+      <label>Category (where it shows in Collections)</label><select id="pcat"></select>
+      <label>Name</label><input id="pn" placeholder="e.g. Skull Print Tee">
+      <label>Colour</label><input id="pc" placeholder="e.g. Black">
+      <label>Price (₹)</label><input id="pp" type="number" value="1999">
+      <label>Language the shirt text prints in</label><select id="plang"></select>
+      <div class="mut" style="margin-top:6px">Customers can type in English letters or paste any text. It is written in this language by sound, not translated.</div>
+      <div style="height:12px"></div><button class="btn" id="pa">Add product</button>
+    </div>
+    <div class="note"><b>Your products</b>
+      <div class="mut">First pick the type, then the products are grouped by language.</div>
+      <div class="types" id="ptypes"></div>
+      <div id="pl" style="margin-top:8px"></div>
+    </div>
+  </div>
+</section>
+
+<section class="panel" id="panel-gallery" data-panel="gallery" hidden>
+  <h2>Gallery · Home banner photos</h2>
+  <div class="mut">Show as the big banner on the home page, with your text on top.</div>
+  <div class="split">
+    <div class="note"><b>Add banner photos</b>
+      <label>Photos (choose several at once)</label><input type="file" id="gf" accept="image/*" multiple>
+      <label>Headline on the photo</label><input id="gc" placeholder="e.g. New drop is here"><label>Sub text (optional)</label><input id="gs" placeholder="e.g. Printed on premium cotton">
+      <label>Language of this photo (picks the banner animation)</label><select id="glang"></select>
+      <div class="mut" style="margin-top:6px">Japanese / Chinese: soft storm &middot; Hindi / Marathi: drifting lotus petals &middot; Urdu: crescent moons &middot; English: light breeze.</div>
+      <div style="height:12px"></div><button class="btn" id="ga">Add banner photos</button>
+    </div>
+    <div class="note"><b>Banner photos on the shop</b>
+      <div id="gl" style="margin-top:12px"></div>
+    </div>
+  </div>
+</section>
+
+<section class="panel" id="panel-designs" data-panel="designs" hidden>
+  <h2>Designs · for the shop's "Type your name" section</h2>
+  <div class="mut">Customers type their name, pick one of these designs, then choose T-Shirt / Oversized / Terry / Hoodie. Use PNGs with a transparent background for the best result.</div>
+  <div class="split">
+    <div class="note"><b>Add designs</b>
+      <label>Design images (choose several at once)</label><input type="file" id="df" accept="image/*" multiple>
+      <label>Title (optional)</label><input id="dn" placeholder="e.g. Fire wings">
+      <div class="mut" style="margin-top:6px">PNG keeps its transparent background. Very large images are shrunk automatically so they load fast.</div>
+      <div style="height:12px"></div><button class="btn" id="da">Add designs</button>
+    </div>
+    <div class="note"><b>Designs on the shop</b>
+      <div id="dl" style="margin-top:12px"></div>
+    </div>
+  </div>
+</section>
+
+<section class="panel" id="panel-orders" data-panel="orders" hidden>
+  <h2>Orders</h2>
+  <div class="mut">Every order gets its own unique Order ID. Mark each order as Printing, Dispatched or Delivered.</div>
+  <div class="ordtop">
+    <div class="types" id="ofil" style="margin:0"></div><span class="sp"></span>
+    <button type="button" class="btn dlb" id="dl24">⬇ Download last 24 hours (PDF)</button>
+    <button type="button" class="btn dlb" id="dlAll">⬇ Download all orders (PDF)</button>
+  </div>
+  <div class="note" style="margin:16px 0"><div id="ol"></div></div>
+</section>
+
+<section class="panel" id="panel-queries" data-panel="queries" hidden>
+  <h2>Queries · from the shop's Help Center</h2>
+  <div class="mut">Customers who ask for help appear here with their Order ID and contact details. Call or message them, then mark the query as resolved.</div>
+  <div class="ordtop"><div class="types" id="qfil" style="margin:0"></div></div>
+  <div class="note" style="margin:16px 0"><div id="ql"></div></div>
+</section>
+</div>
+<div class="note"><b>Status</b><p class="mut" id="msg">Connecting…</p></div>
+<script>
+/* ===== FIREBASE: paste the SAME web-app config you used in the shop file ===== */
+var FB_CONFIG={apiKey:"AIzaSyDEQ39jNypcqjNvK3VF9awPPHKo4AxLlNc",authDomain:"maniac-711a2.firebaseapp.com",projectId:"maniac-711a2",storageBucket:"maniac-711a2.firebasestorage.app",messagingSenderId:"717082911075",appId:"1:717082911075:web:7419d1b91a121009feb356"};
+firebase.initializeApp(FB_CONFIG);
+var AUTH=firebase.auth(),FS=firebase.firestore(),SUBS=[];
+</script>
+<script>
+var $=function(i){return document.getElementById(i)},db=null,L=[],O=[],LANGS={en:'English',hi:'Hindi (हिन्दी)',mr:'Marathi (मराठी)',te:'Telugu (తెలుగు)',ja:'Japanese (日本語)',zh:'Chinese (中文)',ur:'Urdu (اردو)'};
+var CATS={tee:'T-Shirt',over:'Oversized Tee',terry:'Oversized Terry',hoodie:'Hoodie'};
+function catOpts(sel){return Object.keys(CATS).map(function(k){return '<option value="'+k+'"'+(k===sel?' selected':'')+'>'+CATS[k]+'</option>'}).join('')}
+function langOpts(sel){return Object.keys(LANGS).map(function(k){return '<option value="'+k+'"'+(k===sel?' selected':'')+'>'+LANGS[k]+'</option>'}).join('')}
+$('plang').innerHTML=langOpts('en');$('pcat').innerHTML=catOpts('tee');
+function gOpts(s){return '<option value=""'+(s?'':' selected')+'>No animation</option>'+langOpts(s)}
+$('glang').innerHTML='<option value="" selected>Choose language…</option>'+langOpts('');
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function say(t){$('msg').textContent=t}
+function shrink(f,max,lim){return new Promise(function(ok,no){
+  var im=new Image(),u=URL.createObjectURL(f);
+  im.onerror=function(){URL.revokeObjectURL(u);no(new Error(f.name+' is not a readable image'))};
+  im.onload=function(){
+    var m=Math.min(1,max/Math.max(im.width,im.height)),c=document.createElement('canvas'),x,d,k=0,q=.95;
+    /* keep quality high: lower the JPEG quality only a little first, shrink the size only if still too big */
+    do{c.width=Math.round(im.width*m);c.height=Math.round(im.height*m);x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.imageSmoothingQuality='high';x.drawImage(im,0,0,c.width,c.height);d=c.toDataURL('image/jpeg',q);if(d.length>(lim||180000)){if(q>.86)q-=.045;else m*=.88}}while(d.length>(lim||180000)&&k++<12);
+    URL.revokeObjectURL(u);ok(d)};
+  im.src=u})}
+function shrinkPng(f,max,lim){return new Promise(function(ok,no){
+  var im=new Image(),u=URL.createObjectURL(f);
+  im.onerror=function(){URL.revokeObjectURL(u);no(new Error(f.name+' is not a readable image'))};
+  im.onload=function(){
+    var m=Math.min(1,max/Math.max(im.width,im.height)),c=document.createElement('canvas'),d,k=0;
+    do{c.width=Math.max(1,Math.round(im.width*m));c.height=Math.max(1,Math.round(im.height*m));var x=c.getContext('2d');x.clearRect(0,0,c.width,c.height);x.imageSmoothingQuality='high';x.drawImage(im,0,0,c.width,c.height);d=c.toDataURL('image/png');m*=.8}while(d.length>lim&&k++<8);
+    URL.revokeObjectURL(u);
+    if(d.length>lim)no(new Error(f.name+' is too detailed to store. Use a simpler or smaller image.'));else ok(d)};
+  im.src=u})}
+var TYPES_PL={tee:'T-Shirts',over:'Oversized Tees',terry:'Oversized Terry',hoodie:'Hoodies'},PT=null,PTUser=false,PSYNC=false;
+function rowHtml(x,kind){return '<div class="row"><img'+(kind==='design'?' class="dz"':'')+' src="'+x.img+'" alt=""><span>'+esc(x.name||'Untitled photo')+(x.sub?' · '+esc(x.sub):'')+(x.colour?' · '+esc(x.colour):'')+(kind==='product'?' · ₹'+esc(x.price):'')+(kind==='product'&&x.imgs&&x.imgs.length?' · '+(x.imgs.length+1)+' photos':'')+'</span>'+(kind==='design'?'':'')+(kind==='product'?'<select data-ct="'+x.id+'" title="Category">'+catOpts(x.cat||'tee')+'</select><select data-lg="'+x.id+'" title="Text language">'+langOpts(x.lang||'en')+'</select>':kind==='gallery'?'<select data-lg="'+x.id+'" title="Banner animation">'+gOpts(x.lang||'')+'</select>':'')+(kind==='gallery'?'<button class="btn" data-ed="'+x.id+'">Edit text</button>':'')+'<button class="btn" data-id="'+x.id+'">Delete</button></div>'}
+function ofType(c){return L.filter(function(x){return x.kind==='product'&&(x.cat||'tee')===c})}
+/* Products: first by type (chips), then grouped by language inside the chosen type */
+function drawProducts(){
+  var ks=Object.keys(CATS),langKeys=Object.keys(LANGS),items,groups={},out='';
+  if(!PTUser||!CATS[PT]){PT=ks.filter(function(k){return ofType(k).length})[0]||'tee'}
+  if(!PSYNC&&!PTUser&&L.length){PSYNC=true;$('pcat').value=PT}
+  $('ptypes').innerHTML=ks.map(function(k){return '<button type="button" class="chip'+(k===PT?' on':'')+'" data-type="'+k+'">'+TYPES_PL[k]+'<b>'+ofType(k).length+'</b></button>'}).join('');
+  items=ofType(PT);
+  if(!items.length){$('pl').innerHTML='<span class="mut">No '+TYPES_PL[PT]+' yet. Add one using the form.</span>';return}
+  items.forEach(function(x){var k=LANGS[x.lang||'en']?(x.lang||'en'):'other';(groups[k]=groups[k]||[]).push(x)});
+  langKeys.concat('other').forEach(function(k){var g=groups[k];if(!g)return;
+    out+='<div class="lg"><div class="lgh"><b>'+(k==='other'?'Other':LANGS[k])+'</b><span class="mut">'+g.length+(g.length===1?' product':' products')+'</span></div>'+g.map(function(x){return rowHtml(x,'product')}).join('')+'</div>'});
+  $('pl').innerHTML=out;
+}
+function list(kind){
+  var h=L.filter(function(x){return x.kind===kind}).map(function(x){return rowHtml(x,kind)}).join('');
+  return h||'<span class="mut">Nothing added yet.</span>';
+}
+function counts(){
+  var nw=O.filter(function(x){return stOf(x.o)==='New'}).length;
+  $('cP').textContent=L.filter(function(x){return x.kind==='product'}).length;
+  $('cG').textContent=L.filter(function(x){return x.kind==='gallery'}).length;$('cD').textContent=L.filter(function(x){return x.kind==='design'}).length;
+  $('cO').textContent=O.length;$('cOn').textContent=nw+' new';$('cOn').hidden=!nw;
+  var qo=Q.filter(function(x){return x.q.status!=='Resolved'}).length;$('cQ').textContent=Q.length;$('cQn').textContent=qo+' open';$('cQn').hidden=!qo;
+}
+function render(){$('gl').innerHTML=list('gallery');$('dl').innerHTML=list('design');drawProducts();drawOrders();drawQueries()}
+function tdet(o){var t=o.texts||[],n=o.textCount!=null?o.textCount:t.length;
+  return '<b>'+n+' text'+(n===1?'':'s')+'</b> · prints in '+esc(o.langName||LANGS[o.lang]||'English')+(o.hasPicture?' · + 1 picture'+(o.picture?' (size '+o.picture.size+'%, x '+o.picture.x+'%, y '+o.picture.y+'%)':''):'')+
+  t.map(function(y,k){return '<br>#'+(k+1)+' typed “'+esc(y.raw)+'”'+(y.raw!==y.txt?' → printed <b>'+esc(y.txt)+'</b>':'')+' · '+esc(y.font)+' · <i style="display:inline-block;width:10px;height:10px;border-radius:50%;background:'+esc(y.color)+';border:1px solid #888"></i> '+esc(y.color)+' · size '+y.size+' · pos '+y.x+'%,'+y.y+'% · '+esc(y.direction||'Horizontal')}).join('')}
+var Q=[],QF='Open';
+var OF='New',STS=['New','Printing','Dispatched','Delivered'];
+function stOf(o){var t=o.status||'New';return t==='Shipped'?'Dispatched':t}
+function ordNo(x){return x.o.orderNo||x.id.slice(-6).toUpperCase()}
+function drawOrders(){
+  var cnt={All:O.length};STS.forEach(function(k){cnt[k]=0});O.forEach(function(x){var k=stOf(x.o);cnt[k]=(cnt[k]||0)+1});
+  $('ofil').innerHTML=['New','Printing','Dispatched','Delivered','All'].map(function(k){return '<button type="button" class="chip'+(k===OF?' on':'')+'" data-of="'+k+'">'+k+'<b>'+(cnt[k]||0)+'</b></button>'}).join('');
+  var h=O.map(function(x,i){return{x:x,i:i}}).filter(function(r){return OF==='All'||stOf(r.x.o)===OF}).map(function(r){var x=r.x,i=r.i,o=x.o,cur=stOf(o);
+    function sb(k){return '<button class="btn'+(cur===k?' on':'')+'" data-i="'+i+'" data-st="'+k+'">'+(cur===k?'✓ ':'')+k+'</button>'}
+    return '<div class="ord"><img src="'+(o.preview||'')+'" alt="" style="width:140px;border-radius:8px;flex:none;align-self:flex-start;background:#ddd"><div class="m"><span class="oid">'+esc(ordNo(x))+'</span> <span class="tag">'+esc(cur)+'</span> '+new Date(o.ts).toLocaleString()+'<br><b>'+esc(o.name)+'</b> · '+esc(o.phone)+(o.altPhone?' / '+esc(o.altPhone):'')+(o.email?' · '+esc(o.email):'')+'<br>'+esc(o.address)+'<br>'+esc(o.pname||'')+' '+esc(o.color||'')+' · '+esc(o.shirt||'black')+' · '+(CATS[o.cat||'tee']||'T-Shirt')+' · '+esc(o.size)+' · ×'+o.qty+' · ₹'+o.total+(o.payment?'<br>Payment: UPI · UTR '+esc(o.payment.utr)+' · '+esc(o.payStatus||''):'')+'<br>'+tdet(o)+'<br>'+sb('New')+sb('Printing')+sb('Dispatched')+sb('Delivered')+'<button class="btn" data-dl="'+x.id+'">Design PNG</button></div></div>'}).join('');
+  $('ol').innerHTML=(O.length?'<b>'+O.length+'</b> orders · revenue <b>₹'+O.reduce(function(s,x){return s+(x.o.total||0)},0).toLocaleString('en-IN')+'</b>':'')+(h||'<div class="mut" style="margin-top:8px">'+(O.length?'No '+OF+' orders.':'No orders yet. Orders placed on the shop appear here.')+'</div>');
+  counts();
+}
+function drawQueries(){
+  var open=Q.filter(function(x){return x.q.status!=='Resolved'}).length,res=Q.length-open;
+  $('qfil').innerHTML=[['Open',open],['Resolved',res],['All',Q.length]].map(function(k){return '<button type="button" class="chip'+(k[0]===QF?' on':'')+'" data-qf="'+k[0]+'">'+k[0]+'<b>'+k[1]+'</b></button>'}).join('');
+  var h=Q.map(function(x,i){return{x:x,i:i}}).filter(function(r){var st=r.x.q.status==='Resolved'?'Resolved':'Open';return QF==='All'||st===QF}).map(function(r){var q=r.x.q,i=r.i,done=q.status==='Resolved';
+    return '<div class="ord"><div class="m"><span class="oid">'+esc(q.orderNo||'')+'</span> <span class="tag" style="'+(done?'':'background:#dc2626;color:#fff')+'">'+(done?'Resolved':'Open')+'</span> '+new Date(q.ts).toLocaleString()+
+    '<br><b style="font-size:16px">'+esc(q.issue||'')+'</b>'+(q.message?'<br>“'+esc(q.message)+'”':'')+
+    '<br><b>'+esc(q.name||'')+'</b> · <a href="tel:'+esc(q.phone||'')+'">'+esc(q.phone||'')+'</a>'+(q.altPhone?' / <a href="tel:'+esc(q.altPhone)+'">'+esc(q.altPhone)+'</a>':'')+(q.email?' · '+esc(q.email):'')+
+    '<br>'+esc(q.address||'')+'<br>'+esc(q.pname||'')+' · size '+esc(q.size||'')+' · ×'+(q.qty||1)+' · ₹'+(q.total||0)+' · order status: '+esc(q.orderStatus||'New')+
+    '<br><button class="btn'+(done?'':' dlb')+'" data-qi="'+i+'" data-qs="'+(done?'Open':'Resolved')+'">'+(done?'Reopen':'✓ Mark resolved')+'</button></div></div>'}).join('');
+  $('ql').innerHTML=h||'<span class="mut">'+(Q.length?'No '+QF.toLowerCase()+' queries.':'No queries yet. They appear here when a customer uses the Help Center.')+'</span>';
+  counts();
+}
+/* ===== PDF download: per order = details page, design PNG page, design-on-shirt page ===== */
+function wrapLines(c,txt,w){var out=[],par=String(txt).split('\n');par.forEach(function(p){var words=p.split(' '),line='';words.forEach(function(wd){var t=line?line+' '+wd:wd;if(c.measureText(t).width>w&&line){out.push(line);line=wd}else line=t});out.push(line)});return out}
+function orderLines(x){var o=x.o,t=o.texts||[],L=[];
+  L.push(['Order ID',ordNo(x)],['Placed on',new Date(o.ts).toLocaleString()],['Status',stOf(o)],['Customer name',o.name||''],['Phone',o.phone||''],['Alternate phone',o.altPhone||''],['Email',o.email||''],['Delivery address',o.address||''],
+  ['Product',(o.pname||'')+' '+(o.color||'')],['Shirt colour',o.shirt||'black'],['Type',CATS[o.cat||'tee']||'T-Shirt'],['Size',o.size||''],['Quantity',String(o.qty)],['Unit price','Rs '+(o.unit||'')],['Total','Rs '+o.total]);
+  if(o.payment)L.push(['Payment','UPI · UTR '+o.payment.utr+' · '+(o.payStatus||'')]);
+  L.push(['Print language',o.langName||LANGS[o.lang]||'English'],['Number of texts',String(o.textCount!=null?o.textCount:t.length)]);
+  t.forEach(function(y,k){L.push(['Text '+(k+1),'typed "'+y.raw+'"'+(y.raw!==y.txt?'  →  printed "'+y.txt+'"':'')+'\nFont: '+y.font+' · Colour: '+y.color+' · Size: '+y.size+' · Position: '+y.x+'%, '+y.y+'% · '+(y.direction||'Horizontal')+(y.border?' · Border '+y.border+' ('+y.borderColor+')':'')])});
+  L.push(['Picture',o.hasPicture?(o.picture?'Yes · size '+o.picture.size+'%, x '+o.picture.x+'%, y '+o.picture.y+'%':'Yes'):'No']);
+  return L}
+function detailsPage(x,idx,total){
+  var W=1240,H=1754,c=document.createElement('canvas');c.width=W;c.height=H;var g=c.getContext('2d');
+  g.fillStyle='#fff';g.fillRect(0,0,W,H);g.fillStyle='#111';g.fillRect(0,0,W,150);
+  g.fillStyle='#fff';g.font='bold 54px Arial,sans-serif';g.fillText('ManiacPrints Order',70,92);g.font='28px Arial,sans-serif';g.fillText('Order '+(idx+1)+' of '+total,70,132);
+  var y=230,F='"Noto Sans Devanagari","Noto Sans JP","Noto Sans SC",Arial,sans-serif';
+  orderLines(x).forEach(function(r){
+    g.font='bold 30px '+F;g.fillStyle='#666';g.fillText(r[0],70,y);
+    g.font='32px '+F;g.fillStyle='#111';var ls=wrapLines(g,r[1]||'-',W-460);
+    ls.forEach(function(l,k){g.fillText(l,380,y+k*42)});
+    y+=Math.max(1,ls.length)*42+22;g.fillStyle='#e5e5e5';g.fillRect(70,y-30,W-140,2)});
+  return c.toDataURL('image/jpeg',.92)}
+function loadImg(src){return new Promise(function(ok,no){var im=new Image();im.onload=function(){ok(im)};im.onerror=function(){no(new Error('image'))};im.src=src})}
+async function fitImg(doc,src,fmt,bg){
+  var PW=210,PH=297,m=14,top=24;
+  try{var im=await loadImg(src),mw=PW-2*m,mh=PH-top-m,r=Math.min(mw/im.width,mh/im.height),w=im.width*r,h=im.height*r,xx=(PW-w)/2;
+    if(bg){doc.setFillColor(200,200,200);doc.rect(xx,top,w,h,'F')}
+    doc.addImage(src,fmt,xx,top,w,h)}
+  catch(e){doc.setFontSize(12);doc.text('(image not available)',m,top+10)}}
+async function dlList(hours,btn){
+  var list=O.filter(function(x){return !hours||Date.now()-x.o.ts<=hours*3600000});
+  if(!list.length){say(hours?'No orders in the last 24 hours.':'No orders yet.');return}
+  if(!window.jspdf){say('PDF tool did not load. Check your internet and reload this page.');return}
+  var old=btn.textContent;btn.disabled=true;
+  try{
+    var doc=new window.jspdf.jsPDF({unit:'mm',format:'a4'}),first=true;
+    for(var i=0;i<list.length;i++){var x=list[i];btn.textContent='Preparing '+(i+1)+' of '+list.length+'…';
+      if(!first)doc.addPage();first=false;
+      doc.addImage(detailsPage(x,i,list.length),'JPEG',0,0,210,297);
+      var png=null;try{var d=await db.collection('orders').doc(x.id).collection('files').doc('design').get();if(d.exists)png=d.data().png}catch(e){}
+      doc.addPage();doc.setFontSize(16);doc.setTextColor(0);doc.text('Design (PNG) · '+ordNo(x)+' · '+(x.o.name||''),14,16);
+      if(png)await fitImg(doc,png,'PNG',true);else{doc.setFontSize(12);doc.text('(design file not found)',14,34)}
+      doc.addPage();doc.setFontSize(16);doc.setTextColor(0);doc.text('Design placed on shirt · '+ordNo(x),14,16);
+      if(x.o.preview)await fitImg(doc,x.o.preview,'JPEG',false);else{doc.setFontSize(12);doc.text('(preview not available)',14,34)}
+    }
+    var t=new Date(),stamp=t.getFullYear()+String(t.getMonth()+1).padStart(2,'0')+String(t.getDate()).padStart(2,'0');
+    doc.save('maniacprints-orders-'+(hours?'last-24-hours-':'all-')+stamp+'.pdf');
+    say('Downloaded '+list.length+(list.length===1?' order.':' orders.'))}
+  catch(e){say('Could not make the PDF: '+(e.message||e))}
+  btn.disabled=false;btn.textContent=old}
+async function dlDesign(id,btn){btn.disabled=true;try{var d=await db.collection('orders').doc(id).collection('files').doc('design').get();if(!d.exists)throw new Error('design file not found');var a=document.createElement('a');a.href=d.data().png;a.download='design-'+id+'.png';document.body.appendChild(a);a.click();a.remove()}catch(e){say('Could not download: '+(e.message||e.code))}btn.disabled=false}
+document.addEventListener('click',function(e){var t=e.target;if(t.tagName==='IMG'&&t.parentNode&&t.parentNode.classList&&t.parentNode.classList.contains('ord')){var o=document.createElement('div');o.id='lbx';o.innerHTML='<img src="'+t.src+'" alt="">';o.onclick=function(){o.remove()};document.body.appendChild(o)}});
+$('dl24').onclick=function(){dlList(24,this)};$('dlAll').onclick=function(){dlList(0,this)};
+document.addEventListener('click',function(e){var d=e.target.dataset;if(!d)return;if(d.of){OF=d.of;drawOrders();return}if(d.qf){QF=d.qf;drawQueries();return}if(!db)return;
+  if(d.qs){var qq=Q[+d.qi];if(qq)db.collection('queries').doc(qq.id).update({status:d.qs,resolvedAt:d.qs==='Resolved'?Date.now():null}).catch(function(er){say('Could not update query: '+er.message)});return}
+  if(d.st){var x=O[+d.i];db.collection('orders').doc(x.id).update({status:d.st}).catch(function(er){say('Status update failed: '+er.message)})}
+  else if(d.dl)dlDesign(d.dl,e.target)});
+function put(kind,img,extra){return db.collection('products').doc(kind[0]+Date.now().toString(36)+Math.random().toString(36).slice(2,5)).set(Object.assign({ts:Date.now(),kind:kind,img:img},extra))}
+document.body.onclick=function(e){var id=e.target.dataset&&e.target.dataset.id;if(id&&db&&confirm('Delete this item from the shop?'))db.collection('products').doc(id).delete().then(function(){say('Deleted.')})};
+document.addEventListener('click',function(e){var id=e.target.dataset&&e.target.dataset.ed;if(!id||!db)return;var x=L.filter(function(q){return q.id===id})[0];if(!x)return;var h=prompt('Headline on the photo',x.name||'');if(h===null)return;var s=prompt('Sub text (optional)',x.sub||'');if(s===null)return;db.collection('products').doc(id).update({name:h.trim(),sub:s.trim()}).then(function(){say('Text updated.')})});
+document.addEventListener('change',function(e){var ct=e.target.dataset&&e.target.dataset.ct;if(ct&&db){db.collection('products').doc(ct).update({cat:e.target.value}).then(function(){say('Category changed to '+CATS[e.target.value]+'.')});return}var id=e.target.dataset&&e.target.dataset.lg;if(!id||!db)return;db.collection('products').doc(id).update({lang:e.target.value}).then(function(){say(e.target.value?'Language changed to '+LANGS[e.target.value]+'.':'Animation turned off for this photo.')})});
+$('ga').onclick=async function(){
+  var fs=[].slice.call($('gf').files),cap=$('gc').value.trim(),b=$('ga'),n=0;
+  if(!db){say('Still connecting, try again in a moment.');return}
+  if(!fs.length){say('Choose one or more photos first.');return}
+  if(!$('glang').value){say('Choose the language for these photos first. It decides the animation.');return}
+  b.disabled=true;
+  for(var i=0;i<fs.length;i++){b.textContent='Adding '+(i+1)+' of '+fs.length+'…';
+    try{await put('gallery',await shrink(fs[i],1600,450000),{name:cap,sub:$('gs').value.trim(),lang:$('glang').value});n++}catch(e){say(e.message);break}}
+  b.disabled=false;b.textContent='Add banner photos';
+  if(n){$('gf').value='';$('gc').value='';$('gs').value='';say(n+(n>1?' photos':' photo')+' added to the home banner.')}
+};
+$('da').onclick=async function(){
+  var fs=[].slice.call($('df').files),cap=$('dn').value.trim(),b=$('da'),n=0;
+  if(!db){say('Still connecting, try again in a moment.');return}
+  if(!fs.length){say('Choose one or more design images first.');return}
+  b.disabled=true;
+  for(var i=0;i<fs.length;i++){b.textContent='Adding '+(i+1)+' of '+fs.length+'…';
+    try{await put('design',await shrinkPng(fs[i],900,380000),{name:cap||fs[i].name.replace(/\.[^.]+$/,'')});n++}catch(e){say(e.message);break}}
+  b.disabled=false;b.textContent='Add designs';
+  if(n){$('df').value='';$('dn').value='';say(n+(n>1?' designs':' design')+' added. They show on the shop in the "Type your name" section.')}
+};
+$('pa').onclick=async function(){
+  var all=[].slice.call($('pf').files),fs=all.slice(0,6),n=$('pn').value.trim(),b=$('pa'),i,main,more=[],tot;
+  if(!db){say('Still connecting, try again in a moment.');return}
+  if(!fs.length||!n){say('Choose at least one photo and enter a name.');return}
+  b.disabled=true;
+  try{
+    /* high quality: big photos (up to 1600px) at ~95% JPEG. One product must fit in a single 1 MB database entry, so the budget is shared between its photos */
+    var B=940000,mainLim=fs.length===1?B:Math.min(700000,Math.max(Math.floor(B*.34),B-(fs.length-1)*300000)),xLim=fs.length>1?Math.min(300000,Math.floor((B-mainLim)/(fs.length-1))):0;
+    main=await shrink(fs[0],1600,mainLim);tot=main.length;
+    for(i=1;i<fs.length;i++){b.textContent='Preparing photo '+(i+1)+' of '+fs.length+'…';var d=await shrink(fs[i],1400,xLim);more.push(d);tot+=d.length}
+    if(tot>B+10000)throw new Error('These photos are too large together. Choose fewer photos.');
+    b.textContent='Adding…';
+    await put('product',main,{name:n,colour:$('pc').value.trim(),price:$('pp').value||'1999',lang:$('plang').value,cat:$('pcat').value,imgs:more});PT=$('pcat').value;PTUser=true;
+    $('pf').value='';$('pn').value='';$('pc').value='';
+    say('Product added in '+CATS[$('pcat').value]+' with '+fs.length+(fs.length>1?' photos that flash':' photo')+', printing in '+LANGS[$('plang').value]+'.'+(all.length>6?' Only the first 6 photos were used.':''))}
+  catch(e){say(e.message)}
+  b.disabled=false;b.textContent='Add product'
+};
+function stopSubs(){SUBS.forEach(function(f){f()});SUBS=[]}
+function startSubs(){
+  SUBS.push(db.collection('orders').orderBy('ts','desc').onSnapshot(function(snap){O=snap.docs.map(function(q){return{id:q.id,o:q.data()}});drawOrders()},function(e){say('Could not load orders: '+e.message)}));
+  SUBS.push(db.collection('queries').orderBy('ts','desc').onSnapshot(function(snap){Q=snap.docs.map(function(q){return{id:q.id,q:q.data()}});drawQueries()},function(e){say('Could not load queries: '+e.message)}));
+  SUBS.push(db.collection('products').orderBy('ts','desc').onSnapshot(function(s){L=s.docs.map(function(q){var x=q.data();x.id=q.id;return x});render()},function(e){say('Could not load: '+e.message)}));
+}
+$('lg').onclick=function(){say('Signing in…');AUTH.signInWithEmailAndPassword($('le').value.trim(),$('lp').value).catch(function(e){say('Sign in failed: '+(e.code||e.message))})};
+$('lgg').onclick=function(){say('Opening Google…');AUTH.signInWithPopup(new firebase.auth.GoogleAuthProvider()).catch(function(e){say(e.code==='auth/unauthorized-domain'?'This website address is not allowed yet. In Firebase > Authentication > Settings > Authorized domains, add: '+location.hostname:'Google sign in failed: '+(e.code||e.message))})};
+$('lo').onclick=function(){AUTH.signOut()};
+AUTH.onAuthStateChanged(function(u){
+  stopSubs();db=null;O=[];L=[];Q=[];$('app').hidden=true;$('lo').hidden=!u;$('loginBox').hidden=!!u;
+  if(!u){say('Sign in with your admin account.');return}
+  FS.collection('admins').doc(u.uid).get().then(function(s){
+    if(!s.exists){say('Signed in as '+u.email+', but this account is not an admin yet. In Firebase console > Firestore > create collection "admins" > add a document whose Document ID is exactly: '+u.uid+' (any field, e.g. email). Then reload this page.');return}
+    db=FS;$('app').hidden=false;startSubs();say('Connected as '+u.email+'. Anything you add here appears on the shop page right away.')
+  }).catch(function(e){say('Could not check admin access: '+e.message)})});
+/* sections (tabs) and product type chips */
+function showTab(t){
+  if(!/^(products|gallery|designs|orders|queries)$/.test(t))t='products';
+  [].forEach.call(document.querySelectorAll('.tab'),function(b){var on=b.dataset.tab===t;b.classList.toggle('on',on);b.setAttribute('aria-selected',on)});
+  [].forEach.call(document.querySelectorAll('.panel'),function(p){p.hidden=p.dataset.panel!==t});
+  try{history.replaceState(null,'','#'+t)}catch(e){}
+}
+document.addEventListener('click',function(e){
+  var b=e.target.closest&&e.target.closest('[data-tab]');
+  if(b){showTab(b.dataset.tab);window.scrollTo(0,0);return}
+  var c=e.target.closest&&e.target.closest('[data-type]');
+  if(c){PT=c.dataset.type;PTUser=true;$('pcat').value=PT;drawProducts()}
+});
+showTab(location.hash.slice(1));
+render();
+</script>
+</body>
+</html>
